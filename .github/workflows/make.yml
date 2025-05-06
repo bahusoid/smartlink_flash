@@ -1,13 +1,18 @@
 name: Build and Upload Binaries
 
 on: [workflow_dispatch, push, pull_request]
+
 jobs:
   build-and-upload:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
 
     runs-on: ${{ matrix.os }}
+
+    env:
+      FOLDERS: ". fwhelper" # Define the list of folders here
 
     steps:
       # Step 1: Checkout the repository
@@ -37,21 +42,21 @@ jobs:
         run: |
           C:\tools\msys64\usr\bin\bash -lc "make"
 
-      # Step 4: Build Makefiles in subdirectories
-      - name: Build Makefiles in subdirectories (Linux)
+      # Step 4: Build Makefiles in specified directories
+      - name: Build Makefiles in specific directories (Linux)
         if: runner.os == 'Linux'
         run: |
-          for dir in */; do
+          for dir in $FOLDERS; do
             if [ -f "$dir/Makefile" ]; then
               echo "Building in $dir ..."
               (cd "$dir" && make)
             fi
           done
 
-      - name: Build Makefiles in subdirectories (Windows)
+      - name: Build Makefiles in specific directories (Windows)
         if: runner.os == 'Windows'
         run: |
-          for /D %%D in (*) do (
+          for %%D in (%FOLDERS%) do (
             if exist "%%D\Makefile" (
               echo Building in %%D ...
               C:\tools\msys64\usr\bin\bash -lc "cd %%D && make"
