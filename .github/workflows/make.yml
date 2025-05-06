@@ -1,0 +1,78 @@
+name: Build and Upload Binaries
+
+on: [workflow_dispatch, push, pull_request]
+jobs:
+  build-and-upload:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Install dependencies
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential libusb-1.0-0-dev
+
+      - name: Install MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install msys2
+          refreshenv
+
+      # Step 3: Build root Makefile
+      - name: Build root Makefile (Linux)
+        if: runner.os == 'Linux'
+        run: make
+
+      - name: Build root Makefile (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          C:\tools\msys64\usr\bin\bash -lc "make"
+
+      # Step 4: Build Makefiles in subdirectories
+      - name: Build Makefiles in subdirectories (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          for dir in */; do
+            if [ -f "$dir/Makefile" ]; then
+              echo "Building in $dir ..."
+              (cd "$dir" && make)
+            fi
+          done
+
+      - name: Build Makefiles in subdirectories (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          for /D %%D in (*) do (
+            if exist "%%D\Makefile" (
+              echo Building in %%D ...
+              C:\tools\msys64\usr\bin\bash -lc "cd %%D && make"
+            )
+          )
+
+      # Step 5: Upload all binaries as artifacts
+      - name: Upload Binaries (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-linux
+          path: |
+            **/*              # Match all files
+            !**/*.*           # Exclude files with extensions
+            !**/Makefile      # Explicitly exclude Makefile
+
+      - name: Upload Binaries (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries-windows
+          path: |
+            **/*.exe          # Include only .exe files
